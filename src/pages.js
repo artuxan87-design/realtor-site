@@ -62,7 +62,13 @@ const NAV = [['objects/', '/objects/', 'Каталог'], ['services/', '/servic
 
 // Знак: дом, арка и ключ в одну линию
 const LOGO_MARK = '<svg class="logo-svg" width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 18.5L20 4.5l16.5 14"/><path d="M8 15.5V35h24V15.5"/><path d="M14.5 35V24a5.5 5.5 0 0 1 11 0v11"/><circle cx="20" cy="22.2" r="2"/><path d="M20 24.2V31M20 28h2.4M20 30.6h1.8"/></svg>';
-const logoHtml = site => { const b = site.brand || {}; return b.logo ? `<img class="logo-img" src="${esc(b.logo)}" alt="${esc(b.title || site.name)}" height="44">` : `${LOGO_MARK}<span class="logo-text"><b>${esc(b.title || site.name)}</b>${b.subtitle ? `<small>${esc(b.subtitle)}</small>` : ''}</span>`; };
+const logoHtml = (site, where) => {
+  const b = site.brand || {}, t = b.title || site.name;
+  if (where === 'foot' && b.logo) return `<img class="logo-img logo-full" src="${esc(b.logo)}" alt="${esc(t)}" height="120">`;
+  if (b.mark) return `<img class="logo-img" src="${esc(b.mark)}" alt="" height="50"><span class="logo-text"><b>${esc(t)}</b>${b.subtitle ? `<small>${esc(b.subtitle)}</small>` : ''}</span>`;
+  if (b.logo) return `<img class="logo-img" src="${esc(b.logo)}" alt="${esc(t)}" height="52">`;
+  return `${LOGO_MARK}<span class="logo-text"><b>${esc(t)}</b>${b.subtitle ? `<small>${esc(b.subtitle)}</small>` : ''}</span>`;
+};
 
 // opts: title, desc, path (без path страница закрыта от индексации), active, body, image, type, jsonld, noindex
 function layout(d, o) {
@@ -113,7 +119,7 @@ ${o.body}
 <footer class="foot">
   <div class="wrap foot-in">
     <div>
-      <div class="logo">${logoHtml(site)}</div>
+      <div class="logo">${logoHtml(site, 'foot')}</div>
       <p class="muted">${esc(site.role)}</p>
       <p class="foot-reqs">${[op.name, op.inn ? 'ИНН ' + op.inn : '', op.ogrnip ? 'ОГРНИП ' + op.ogrnip : '', op.address].filter(Boolean).map(esc).join('<br>') || '<span class="tbd">Реквизиты заполняются в админке</span>'}</p>
     </div>

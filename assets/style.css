@@ -386,3 +386,8 @@ h2{font-weight:600}
 .navbar .nav{height:46px;gap:22px}
 @media(max-width:860px){.navbar{border:0}.navbar .nav{height:auto}}
 .hero-facts .nov b{min-width:0;color:var(--brand);display:inline-grid}
+.logo-img{display:block;height:50px;width:auto}
+.logo-text b{color:#B5683F}
+.logo-full{height:120px}
+.foot .logo-text b{color:#E2B27F}
+.quick .consent-mini input{flex:none;width:auto;padding:0;border:0}

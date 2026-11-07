@@ -275,11 +275,13 @@ function createApp({ dataFile = process.env.DATA_FILE || path.join(ROOT, 'data',
         if (p === '/admin/services') return page(A.adminServices(d, ctx, q.msg));
         if (p === '/admin/cases') return page(A.adminCases(d, ctx, q.msg));
         if (p === '/admin/posts') return page(A.adminPosts(d, ctx, q.msg));
+        if (p === '/admin/home') return page(A.adminHome(d, ctx, q.msg));
         if (p === '/admin/import') return page(A.adminImport(d, ctx, q.msg));
         if (p === '/admin/media') return page(A.adminMedia(d, ctx, q.msg, Media.list(uploadsDir)));
         if (p === '/admin/payments') return page(A.adminPayments(d, ctx, q.msg));
         return notFound();
       }
+      if (p === '/admin/home') { const e = store.saveHome(body); return e.length ? send(400, A.adminHome(d, ctx, '', e)) : redirect('/admin/home?msg=' + encodeURIComponent('Сохранено')); }
       if (p === '/admin/import/preview') {
         try {
           const r = await Imp.prepare(body);

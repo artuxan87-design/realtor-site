@@ -67,6 +67,42 @@ ${inp('Видео-обзор (YouTube, RuTube, VK Видео или ссылка
 ${items.map(it => form(it, `/admin/solutions/${it.slug}`, 'Сохранить') + POST(`/admin/solutions/${it.slug}/delete`, '<button class="btn btn-ghost btn-sm" onclick="return confirm(\'Удалить объект?\')">Удалить объект</button>')).join('')}`);
 }
 
+function adminHome(d, ctx, msg, e = []) {
+  const s = d.site, b = s.brand || {}, h = s.hero || {}, a = s.about || {}, q = s.quiz || {}, m = s.leadMagnet || {}, c = s.contacts;
+  const facts = [0, 1, 2].map(i => (h.facts || [])[i] || {});
+  const pr = [0, 1, 2, 3].map(i => (a.principles || [])[i] || {});
+  const st = [0, 1, 2, 3, 4, 5].map(i => (s.steps || [])[i] || {});
+  const icons = { shield: 'Щит', wallet: 'Кошелёк', check: 'Галочка', heart: 'Сердце', key: 'Ключ', doc: 'Документы', star: 'Звезда' };
+  const confirm = (name, on, proposal) => `${proposal ? `<p class="small muted">Предложенная формулировка, требует подтверждения: «${esc(proposal)}»</p>` : ''}${chk('Подтверждено, показывать на сайте', name, on)}`;
+  return adminShell(d, ctx, 'home', `${flash(msg)}${errs(e)}${SCRIPT}<form class="form" method="post" action="/admin/home">
+<p class="muted">Всё, что видно на главной странице. Цифры и обещания показываются только после отметки «Подтверждено»: их должна подтвердить Анастасия, иначе это недостоверная реклама (ст. 5 и 8 Федерального закона «О рекламе»).</p>
+<h3>Логотип</h3>
+${inp('Название', 'brandTitle', b.title)}${inp('Подзаголовок', 'brandSubtitle', b.subtitle)}
+${imgField('Свой логотип (картинка вместо знака и текста)', 'brandLogo', b.logo, 'PNG или SVG-файл на прозрачном фоне, высота около 90 пикселей. Пока пусто, показывается встроенный знак.')}
+<h3>Первый экран</h3>
+${inp('Метка над заголовком', 'heroBadge', h.badge)}${inp('Заголовок', 'heroTitle', h.title, { textarea: 1, rows: 2 })}${inp('Подзаголовок', 'heroSubtitle', h.subtitle, { textarea: 1, rows: 3 })}
+<div class="trio">${inp('Текст кнопки', 'heroCta', h.cta)}${inp('Текст под кнопкой', 'heroMicro', h.micro)}</div>
+${imgField('Портрет (справа на первом экране)', 'trainerPhoto', (s.trainer || {}).photo, 'Вертикальный портрет, светлый фон. Края плавно уходят в фон страницы.')}
+${facts.map((f, i) => `<div class="box"><h4>Факт ${i + 1}</h4><div class="trio">${inp('Число или слово (пусто: без числа)', 'factValue' + i, f.value, { ph: 'например: 100%' })}${inp('Подпись', 'factLabel' + i, f.label)}<input type="hidden" name="factProposal${i}" value="${esc(f.proposal)}"></div>${confirm('factOk' + i, f.confirmed, f.proposal)}</div>`).join('')}
+<div class="box"><h4>Плашка на портрете</h4>${inp('Текст плашки', 'stickerText', (h.sticker || {}).text, { ph: 'Пусто: плашки нет' })}<input type="hidden" name="stickerProposal" value="${esc((h.sticker || {}).proposal)}">${confirm('stickerOk', (h.sticker || {}).confirmed, (h.sticker || {}).proposal)}</div>
+<h3>Блок «Обо мне»</h3>
+${inp('Заголовок', 'aboutTitle', a.title, { textarea: 1, rows: 2 })}${inp('Текст от первого лица: каждый абзац с новой строки', 'aboutText', (a.paragraphs || []).join('\n'), { textarea: 1, rows: 7 })}
+${imgField('Фото процесса консультации', 'aboutPhoto', a.photo, 'Горизонтальное или вертикальное фото за работой с клиентом. Если пусто, используется портрет.')}
+${pr.map((x, i) => `<div class="box"><h4>Принцип ${i + 1}</h4><div class="trio">${sel('Иконка', 'prIcon' + i, icons, x.icon || 'check')}${inp('Название', 'prTitle' + i, x.title)}${inp('Пояснение', 'prText' + i, x.text)}</div></div>`).join('')}
+<h3>Этапы работы (до 6)</h3>
+${st.map((x, i) => `<div class="box"><div class="trio">${inp('Этап ' + (i + 1), 'stepTitle' + i, x.title)}${inp('Описание', 'stepText' + i, x.text, { textarea: 1, rows: 2 })}</div></div>`).join('')}
+<h3>Квиз-подбор</h3>
+${chk('Показывать квиз на главной', 'quizOn', q.enabled !== false)}${inp('Заголовок', 'quizTitle', q.title)}
+<div class="trio">${inp('Цели: по одной в строке', 'quizGoals', (q.goals || []).join('\n'), { textarea: 1, rows: 5 })}${inp('Бюджеты: по одному в строке', 'quizBudgets', (q.budgets || []).join('\n'), { textarea: 1, rows: 5 })}${inp('Районы: по одному в строке', 'quizDistricts', (q.districts || []).join('\n'), { textarea: 1, rows: 5 })}</div>
+<h3>Лид-магнит (чек-лист)</h3>
+${chk('Показывать блок', 'magOn', m.enabled !== false)}${inp('Заголовок', 'magTitle', m.title)}${inp('Текст', 'magText', m.text)}
+<div class="trio">${inp('Ссылка на чек-лист или статью', 'magHref', m.href, { ph: '/blog/chek-list-15-riskov-pri-pokupke-kvartiry/' })}${inp('Текст кнопки', 'magButton', m.button)}</div>
+<h3>Соцсети в подвале</h3>
+${inp('Telegram-канал (ссылка)', 'channel', c.channel, { ph: 'https://t.me/...' })}${inp('ВКонтакте (ссылка)', 'vk', c.vk, { ph: 'https://vk.com/...' })}
+<p class="muted small">Телефон, WhatsApp, Telegram, реквизиты и домен меняются в разделе «Сайт и SEO».</p>
+<button class="btn">Сохранить</button></form>`);
+}
+
 function adminImport(d, ctx, msg, e = [], prev = null) {
   const form = `<form class="box form" method="post" action="/admin/import/preview">
 <h3>Откуда взять объявления</h3>
@@ -145,4 +181,4 @@ function adminMedia(d, ctx, msg, files = []) {
 <p class="muted small">Внимание: на бесплатном тарифе Render загруженные файлы пропадают при перезапуске сервера. На постоянном сервере (VPS) или с подключённым диском они сохраняются.</p>`);
 }
 
-module.exports = { adminImport, adminSite, adminSolutions, adminServices, adminCases, adminPosts, adminMedia };
+module.exports = { adminHome, adminImport, adminSite, adminSolutions, adminServices, adminCases, adminPosts, adminMedia };

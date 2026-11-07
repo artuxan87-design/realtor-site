@@ -22,7 +22,7 @@ function files() { return { site: read('site.json'), solutions: read('solutions.
 
 function load(store) {
   const base = read('solutions.json');
-  return { settings: store.s, site: { ...store.c.site, steps: files().site.steps }, sol: { categories: base.categories, base: base.base, items: store.c.solutions }, srv: { items: store.c.services }, cases: { items: store.c.cases }, posts: store.publishedPosts(), allPosts: store.c.posts || [] };
+  return { settings: store.s, site: store.c.site, sol: { categories: base.categories, base: base.base, items: store.c.solutions }, srv: { items: store.c.services }, cases: { items: store.c.cases }, posts: store.publishedPosts(), allPosts: store.c.posts || [] };
 }
 
 // Что владельцу осталось заполнить: список {text, href}
@@ -33,7 +33,10 @@ function missing(d, store, paySettings) {
   if (!s.domain) add('Указать домен сайта (до этого сайт закрыт от поисковиков)', '/admin/site');
   if (!c.telegram && !c.whatsappPhone && !c.email && !c.phone) add('Указать контакты для связи: телефон, Telegram, WhatsApp или e-mail', '/admin/site');
   if (!s.operator.name || !s.operator.inn) add('Заполнить реквизиты оператора персональных данных (ФИО, ИНН)', '/admin/site');
-  if (!(s.trainer && s.trainer.photo)) add('Загрузить своё фото на страницу «Об агенте»', '/admin/site');
+  if (!(s.trainer && s.trainer.photo)) add('Загрузить портрет для первого экрана и страницы «Об агенте»', '/admin/home')
+  if (!(s.about && s.about.photo)) add('Загрузить фото процесса консультации для блока «Обо мне»', '/admin/home')
+  if ((s.hero && s.hero.facts || []).some(f => f.proposal && !f.confirmed) || (s.hero && s.hero.sticker && s.hero.sticker.proposal && !s.hero.sticker.confirmed)) add('Подтвердить или убрать цифры и обещания на главной: сделки, сроки, экономия клиентов (без подтверждения они не показываются)', '/admin/home')
+  if (!(s.contacts.channel || s.contacts.vk)) add('Добавить ссылки на Telegram-канал и ВКонтакте', '/admin/home');
   if (!(s.gallery && s.gallery.length)) add('Добавить фото в галерею (офис, команда, сделки)', '/admin/site');
   if (!(s.seo && s.seo.metrikaId)) add('Подключить Яндекс Метрику: указать номер счётчика', '/admin/site');
   if (!(s.seo && s.seo.yandexVerification)) add('Подтвердить сайт в Яндекс Вебмастере: вставить код проверки', '/admin/site');
@@ -55,7 +58,11 @@ function missing(d, store, paySettings) {
 const cityIn = d => (d.site.seo && d.site.seo.cityIn) || (d.site.contacts.city ? 'в городе ' + d.site.contacts.city : '');
 const initials = n => String(n || '').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || 'А';
 
-const NAV = [['objects/', 'Объекты'], ['services/', 'Услуги и цены'], ['blog/', 'Блог'], ['about/', 'Об агенте'], ['partners/', 'Партнёрам']];
+const NAV = [['objects/', '/objects/', 'Каталог'], ['services/', '/services/', 'Услуги'], ['steps', '/#steps', 'Этапы'], ['about/', '/about/', 'Обо мне'], ['stories/', '/stories/', 'Отзывы'], ['blog/', '/blog/', 'Блог'], ['contact/', '/contact/', 'Контакты']];
+
+// Знак: дом, арка и ключ в одну линию
+const LOGO_MARK = '<svg class="logo-svg" width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 18.5L20 4.5l16.5 14"/><path d="M8 15.5V35h24V15.5"/><path d="M14.5 35V24a5.5 5.5 0 0 1 11 0v11"/><circle cx="20" cy="22.2" r="2"/><path d="M20 24.2V31M20 28h2.4M20 30.6h1.8"/></svg>';
+const logoHtml = site => { const b = site.brand || {}; return b.logo ? `<img class="logo-img" src="${esc(b.logo)}" alt="${esc(b.title || site.name)}" height="44">` : `${LOGO_MARK}<span class="logo-text"><b>${esc(b.title || site.name)}</b>${b.subtitle ? `<small>${esc(b.subtitle)}</small>` : ''}</span>`; };
 
 // opts: title, desc, path (без path страница закрыта от индексации), active, body, image, type, jsonld, noindex
 function layout(d, o) {
@@ -66,6 +73,8 @@ function layout(d, o) {
   const headTags = S.head({ site, base, path: o.path === undefined ? '/' : o.path, title, desc: o.desc || seo.description, image: o.image, type: o.type, noindex, jsonld: o.jsonld || [], published: o.published, modified: o.modified });
   const active = o.active;
   const phoneHref = c.phone ? 'tel:' + c.phone.replace(/[^\d+]/g, '') : '';
+  const wa = c.whatsappPhone ? 'https://wa.me/' + c.whatsappPhone.replace(/\D/g, '') : '';
+  const op = site.operator || {};
   return `<!doctype html>
 <html lang="ru">
 <head>
@@ -74,7 +83,7 @@ function layout(d, o) {
 ${headTags}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/style.css">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 ${S.metrika(seo.metrikaId)}
@@ -84,13 +93,19 @@ ${S.metrika(seo.metrikaId)}
 ${d.demo ? `<div class="demobar"><div class="wrap"><span>Демонстрационный сайт: объекты, цены и данные вымышленные. Такой же сайт можно купить для себя или своего агентства.</span> <a href="${esc(d.demoUrl)}" rel="noopener" target="_blank">Узнать подробнее</a></div></div>` : ''}
 <header class="top">
   <div class="wrap top-in">
-    <a class="logo" href="/"><span class="logo-mark">${esc(initials(site.name))}</span><span>${esc(site.name)}</span></a>
+    <a class="logo" href="/" aria-label="${esc(site.name)}, на главную">${logoHtml(site)}</a>
+    <div class="top-contacts">
+      ${c.phone ? `<a class="tc" href="${esc(phoneHref)}">${icon('phone', 16)}<span class="tc-txt">${esc(c.phone)}</span></a>` : ''}
+      ${wa ? `<a class="tc" href="${esc(wa)}" rel="noopener">WhatsApp</a>` : ''}
+      ${c.telegram ? `<a class="tc" href="https://t.me/${esc(c.telegram)}" rel="noopener">Telegram</a>` : ''}
+      <a class="btn btn-sm" href="/contact/?s=${encodeURIComponent('Обратный звонок')}">Обратный звонок</a>
+    </div>
     <button class="burger" aria-label="Меню" aria-expanded="false"><span></span><span></span></button>
-    <nav class="nav" aria-label="Основное меню">
-      ${NAV.map(([h, t]) => `<a href="/${h}"${active === h ? ' aria-current="page"' : ''}>${t}</a>`).join('')}
-      <a class="btn btn-sm" href="/contact/">Оставить заявку</a>
-    </nav>
   </div>
+  <div class="navbar"><div class="wrap"><nav class="nav" aria-label="Основное меню">
+    ${NAV.map(([k, h, t]) => `<a href="${h}"${active === k ? ' aria-current="page"' : ''}>${t}</a>`).join('')}
+    <a class="btn btn-sm nav-cta" href="/contact/?s=${encodeURIComponent('Обратный звонок')}">Обратный звонок</a>
+  </nav></div></div>
 </header>
 <main id="main">
 ${o.body}
@@ -98,18 +113,21 @@ ${o.body}
 <footer class="foot">
   <div class="wrap foot-in">
     <div>
-      <div class="logo"><span class="logo-mark">${esc(initials(site.name))}</span><span>${esc(site.name)}</span></div>
+      <div class="logo">${logoHtml(site)}</div>
       <p class="muted">${esc(site.role)}</p>
+      <p class="foot-reqs">${[op.name, op.inn ? 'ИНН ' + op.inn : '', op.ogrnip ? 'ОГРНИП ' + op.ogrnip : '', op.address].filter(Boolean).map(esc).join('<br>') || '<span class="tbd">Реквизиты заполняются в админке</span>'}</p>
     </div>
     <div class="foot-links">
-      ${NAV.map(([h, t]) => `<a href="/${h}">${t}</a>`).join('')}
-      <a href="/contact/">Оставить заявку</a>
+      ${NAV.filter(n => n[0] !== 'steps').map(([k, h, t]) => `<a href="${h}">${t}</a>`).join('')}
+      <a href="/partners/">Партнёрам</a>
       <a href="/privacy/">Политика обработки персональных данных</a>
     </div>
     <div class="foot-links">
       ${c.phone ? `<a href="${esc(phoneHref)}">${esc(c.phone)}</a>` : ''}
+      ${wa ? `<a href="${esc(wa)}" rel="noopener">WhatsApp</a>` : ''}
       ${c.telegram ? `<a href="https://t.me/${esc(c.telegram)}" rel="noopener">Telegram</a>` : ''}
-      ${c.whatsappPhone ? `<a href="https://wa.me/${esc(c.whatsappPhone.replace(/\D/g, ''))}" rel="noopener">WhatsApp</a>` : ''}
+      ${c.channel ? `<a href="${esc(c.channel)}" rel="noopener">Telegram-канал</a>` : ''}
+      ${c.vk ? `<a href="${esc(c.vk)}" rel="noopener">ВКонтакте</a>` : ''}
       ${c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : ''}
       ${c.city ? `<span class="muted">${esc(c.city)}</span>` : ''}
     </div>
@@ -188,6 +206,7 @@ function cta(d) {
 }
 
 // Цифры из настроек партнёрской программы
+function facts_(d) { return facts(d); }
 function facts(d, extra = []) {
   const s = d.settings, r = s.rates.service, sum = r.l1 + r.l2 + r.l3;
   const list = [
@@ -217,82 +236,105 @@ function metrics(k) {
 }
 
 // ---------- Главная ----------
+function consentLabel() { return '<label class="consent-mini"><input type="checkbox" name="consent" value="1" required> <span>Согласен на обработку персональных данных по <a href="/privacy/" target="_blank">политике</a></span></label>'; }
+
 function home(d) {
-  const site = d.site, t = site.trainer || {}, seo = site.seo || {};
-  const k = d.cases.items.filter(x => x.public).slice(0, 2);
+  const site = d.site, t = site.trainer || {}, seo = site.seo || {}, hero = site.hero || {}, about = site.about || {}, quiz = site.quiz || {}, mag = site.leadMagnet || {};
+  const k = d.cases.items.filter(x => x.public);
   const posts = d.posts.slice(0, 3);
   const faqs = d.sol.base.faq || [];
-  const live = sortObjects(d.sol.items).filter(i => i.status !== 'sold');
-  const shown = live.slice(0, 6);
-  const why = [['shield', 'Проверка до задатка', 'Выписка ЕГРН, собственники, обременения, прописанные: риски называю до того, как вы внесёте деньги.'], ['wallet', 'Безопасные расчёты', 'Банковская ячейка, аккредитив, электронная регистрация. Наличные из рук в руки не передаём.'], ['doc', 'Договор и фиксированная комиссия', 'Условия и размер вознаграждения записаны в договоре до начала работы, без скрытых платежей.'], ['key', 'Сделка под ключ', 'Показы, торг, документы, банк, регистрация и передача ключей: один человек на связи на всех этапах.']];
+  const live = sortObjects(d.sol.items).filter(i => i.status !== 'sold').slice(0, 6);
+  const sticker = hero.sticker && hero.sticker.confirmed && hero.sticker.text ? hero.sticker.text : '';
+  const facts = (hero.facts || []).map(f => f.confirmed && f.value ? `<li><b>${esc(f.value)}</b><span>${esc(f.label)}</span></li>` : `<li class="nov"><b>${icon('check', 22)}</b><span>${esc(f.label)}</span></li>`).join('');
+  const aboutPhoto = about.photo || t.photo;
+  const cityName = site.contacts.city || '';
   return layout(d, {
     path: '/', active: '', desc: seo.description, body: `
 <section class="hero">
   <div class="wrap hero-in">
     <div>
-      <p class="eyebrow">${esc(site.contacts.city || '')}${site.contacts.city && t.experience ? ' · ' : ''}${esc(t.experience ? 'Опыт ' + t.experience.toLowerCase() : '')}</p>
-      <h1>${esc(site.role)}</h1>
-      <p class="lead">${esc(site.tagline)}</p>
-      <div class="actions"><a class="btn" href="/contact/">Оставить заявку</a><a class="btn btn-ghost" href="/objects/">Смотреть объекты</a></div>
-      <ul class="facts">
-        ${(t.credentials || []).slice(0, 2).map(x => `<li>${icon('shield', 18)} ${esc(x)}</li>`).join('')}
-      </ul>
+      ${hero.badge ? `<span class="badge-pill">${esc(hero.badge)}</span>` : ''}
+      <h1>${esc(hero.title || site.role)}</h1>
+      <p class="lead">${esc(hero.subtitle || site.tagline)}</p>
+      <ul class="hero-facts">${facts}</ul>
+      <form class="quick" method="post" action="/contact">
+        <input name="name" placeholder="Ваше имя" required autocomplete="name" aria-label="Ваше имя">
+        <input name="contact" placeholder="Телефон или Telegram" required autocomplete="tel" aria-label="Телефон">
+        <input type="hidden" name="solution" value="Быстрая заявка с главной">
+        <button class="btn" type="submit">${esc(hero.cta || 'Получить консультацию')}</button>
+        ${consentLabel()}
+      </form>
+      ${hero.micro ? `<p class="muted small">${esc(hero.micro)}</p>` : ''}
     </div>
-    <div class="hero-photo acc-blue${t.photo ? '' : ' noimg'}">${t.photo ? `<img class="photo" src="${esc(t.photo)}" alt="${esc(site.name)}, агент по недвижимости ${esc(site.contacts.city || '')}" width="520" height="620" fetchpriority="high">` : V.cover('flat', 'blue', 'home')}</div>
+    <div class="hero-photo${t.photo ? ' has' : ' noimg'}">${t.photo ? `<img class="photo" src="${esc(t.photo)}" alt="${esc(site.name)}, брокер по недвижимости ${esc(cityName)}" width="520" height="650" fetchpriority="high">` : V.cover('flat', 'indigo', 'home')}${sticker ? `<div class="sticker">${esc(sticker)}</div>` : ''}</div>
   </div>
 </section>
 
-${shown.length ? `<section class="sec">
-  <div class="wrap">
-    <div class="sec-head"><h2>Объекты в продаже и аренде</h2><a href="/objects/">Все объекты →</a></div>
-    <div class="grid">${shown.map(objectCard).join('')}</div>
+${quiz.enabled !== false && (quiz.goals || []).length ? `<section class="sec" id="quiz"><div class="wrap">
+  <div class="quiz" data-quiz>
+    <h2>${esc(quiz.title || 'Подберу варианты под вашу задачу')}</h2>
+    <div class="quiz-steps"><i class="on"></i><i></i><i></i><i></i></div>
+    <div class="quiz-step on" data-step="0"><p class="quiz-q">Что вы хотите сделать?</p><div class="quiz-opts">${quiz.goals.map(x => `<button type="button" data-k="goal" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div></div>
+    <div class="quiz-step" data-step="1"><p class="quiz-q">Какой у вас бюджет?</p><div class="quiz-opts">${(quiz.budgets || []).map(x => `<button type="button" data-k="budget" data-v="${esc(x)}">${esc(x)}</button>`).join('')}<button type="button" data-k="budget" data-v="Пока не определился">Пока не определился</button></div><button type="button" class="quiz-back">Назад</button></div>
+    <div class="quiz-step" data-step="2"><p class="quiz-q">Какой район интересует?</p><div class="quiz-opts">${(quiz.districts || []).map(x => `<button type="button" data-k="district" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div><button type="button" class="quiz-back">Назад</button></div>
+    <div class="quiz-step" data-step="3"><p class="quiz-sum" data-sum></p>
+      <form method="post" action="/contact"><input type="hidden" name="solution" value="Подбор через квиз"><input type="hidden" name="text" data-text>
+        <input name="name" placeholder="Ваше имя" required autocomplete="name"><input name="contact" placeholder="Телефон или Telegram" required autocomplete="tel">${consentLabel()}
+        <button class="btn" type="submit">Получить подборку</button></form><button type="button" class="quiz-back">Назад</button></div>
+    <noscript><p><a class="btn" href="/contact/">Оставить заявку</a></p></noscript>
   </div>
-</section>` : ''}
+</div></section>` : ''}
 
-<section class="sec alt">
-  <div class="wrap">
-    <h2>Почему доверяют сделку мне</h2>
-    <div class="grid why">${why.map(([ic, h, tx]) => `<div class="card why-card">${ibadge(ic, 'blue', 24)}<h3>${h}</h3><p>${tx}</p></div>`).join('')}</div>
-  </div>
-</section>
+${live.length ? `<section class="sec alt"><div class="wrap">
+  <div class="sec-head"><h2>Каталог объектов</h2><a href="/objects/">Все объекты →</a></div>
+  <div class="grid">${live.map(objectCard).join('')}</div>
+</div></section>` : ''}
 
-<section class="sec">
-  <div class="wrap">
-    <div class="sec-head"><h2>Услуги и цены</h2><a href="/services/">Все услуги →</a></div>
-    <div class="grid">${d.srv.items.map(svcCard).join('')}</div>
-  </div>
-</section>
-
-<section class="sec alt">
-  <div class="wrap">
-    <h2>Как проходит работа</h2>
-    <ol class="steps">${site.steps.map(s => `<li><span class="step-ico">${icon(s.icon || 'check', 22)}</span><h3>${esc(s.title)}</h3><p>${esc(s.text)}</p></li>`).join('')}</ol>
-  </div>
-</section>
-
-<section class="sec"><div class="wrap split about-strip">
-  <div class="about-photo acc-blue${t.photo ? '' : ' noimg'}">${t.photo ? `<img class="photo" src="${esc(t.photo)}" alt="${esc(site.name)}" loading="lazy" width="220" height="293">` : V.cover('flat', 'blue', 'home')}</div>
-  <div><p class="eyebrow">Кто с вами работает</p><h2>${esc(t.name || site.name)}</h2>
-  ${(t.about || []).slice(0, 2).map(p => `<p>${esc(p)}</p>`).join('')}
+<section class="sec"><div class="wrap about-home">
+  <div class="ph">${aboutPhoto ? `<img class="photo" src="${esc(aboutPhoto)}" alt="${esc(site.name)} за работой с клиентом" loading="lazy" width="520" height="650">` : V.cover('flat', 'indigo', 'home')}</div>
+  <div><p class="eyebrow">Обо мне</p><h2>${esc(about.title || t.name || site.name)}</h2>
+  ${(about.paragraphs || t.about || []).map(x => `<p>${esc(x)}</p>`).join('')}
+  <div class="principles">${(about.principles || []).map(x => `<div class="principle"><span class="gico">${icon(x.icon || 'check', 22)}</span><h3>${esc(x.title)}</h3><p>${esc(x.text)}</p></div>`).join('')}</div>
   <a class="btn btn-ghost" href="/about/">Подробнее обо мне</a></div>
 </div></section>
 
-${k.length ? `<section class="sec alt"><div class="wrap"><div class="sec-head"><h2>Отзывы и сделки</h2><a href="/stories/">Все истории →</a></div>
-<div class="grid">${k.map(storyCard).join('')}</div></div></section>` : ''}
+<section class="sec alt"><div class="wrap">
+  <div class="sec-head"><h2>Услуги и специализация</h2><a href="/services/">Все услуги →</a></div>
+  <div class="grid">${d.srv.items.slice(0, 3).map(svcCard).join('')}</div>
+</div></section>
+
+<section class="sec" id="steps"><div class="wrap">
+  <h2>Пошаговый путь к вашей цели</h2>
+  <ol class="road">${(site.steps || []).map(x => `<li><h3>${esc(x.title)}</h3><p>${esc(x.text)}</p></li>`).join('')}</ol>
+</div></section>
+
+${k.length ? `<section class="sec alt"><div class="wrap"><div class="sec-head"><h2>Кейсы и отзывы</h2><a href="/stories/">Все истории →</a></div>
+<div class="slider">${k.map(c => `<a class="case-card" href="/stories/#${esc(c.slug)}" style="text-decoration:none;color:inherit"><div class="im">${c.photo ? `<img class="photo" src="${esc(c.photo)}" alt="${esc(c.title)}" loading="lazy">` : V.cover('flat', 'pink', 'heart')}</div><div class="tx"><h3>${esc(c.title)}</h3><p>${esc(c.task)}</p><p class="gain">${esc(c.status)}</p></div></a>`).join('')}</div></div></section>` : ''}
 
 ${posts.length ? `<section class="sec ${k.length ? '' : 'alt'}"><div class="wrap"><div class="sec-head"><h2>Блог о недвижимости</h2><a href="/blog/">Все статьи →</a></div>
 <div class="grid">${posts.map(postCard).join('')}</div></div></section>` : ''}
 
-<section class="sec ${posts.length && !k.length ? '' : 'alt'}"><div class="wrap split">
-  <div><p class="eyebrow">Партнёрская программа</p><h2>Рекомендуйте агента и получайте процент от комиссии</h2>
-  <p>Риелторам смежных направлений, юристам, ипотечным брокерам, застройщикам и просто знакомым, которые знают, кто ищет жильё: приводите клиентов по личной ссылке и получайте вознаграждение с закрытых сделок. Вход бесплатный.</p>
+${mag.enabled !== false && mag.title ? `<section class="sec"><div class="wrap"><div class="magnet">
+  <div><p class="eyebrow">Бесплатно</p><h2>${esc(mag.title)}</h2><p>${esc(mag.text)}</p>${mag.href ? `<p><a href="${esc(mag.href)}">Читать на сайте →</a></p>` : ''}</div>
+  <form method="post" action="/contact"><input type="hidden" name="solution" value="Чек-лист"><input name="name" placeholder="Ваше имя" required autocomplete="name"><input name="contact" placeholder="Телефон, Telegram или e-mail" required>${consentLabel()}<button class="btn" type="submit">${esc(mag.button || 'Получить чек-лист')}</button></form>
+</div></div></section>` : ''}
+
+<section class="sec alt"><div class="wrap split">
+  <div><p class="eyebrow">Партнёрская программа</p><h2>Рекомендуйте брокера и получайте процент от комиссии</h2>
+  <p>Юристам, ипотечным брокерам, застройщикам и знакомым, которые знают, кто ищет жильё: приводите клиентов по личной ссылке и получайте вознаграждение с закрытых сделок. Вход бесплатный.</p>
   <a class="btn btn-ghost" href="/partners/">Условия программы</a></div>
-  ${facts(d)}
+  ${facts_(d)}
 </div></section>
 
 ${faqs.length ? `<section class="sec"><div class="wrap narrow"><h2>Частые вопросы</h2>${faqs.map(([q, a]) => `<details class="faq"><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join('')}</div></section>` : ''}
 
-${cta(d)}
+<section class="sec alt" id="lead"><div class="wrap"><div class="cta">
+  <div><h2>Планируете покупку или продажу в ближайшие месяцы?</h2><p>Опишите задачу или задайте вопрос: подготовлю оценку стоимости вашего объекта или обзор рынка под ваш бюджет.</p></div>
+  <form class="lead-form" method="post" action="/contact"><input type="hidden" name="solution" value="Заявка из подвала главной">
+    <input name="name" placeholder="Ваше имя" required autocomplete="name"><input name="contact" placeholder="Номер телефона" required autocomplete="tel">
+    <div class="chan"><span>Где удобнее ответ:</span><label><input type="radio" name="text" value="Ответ: WhatsApp" checked> WhatsApp</label><label><input type="radio" name="text" value="Ответ: Telegram"> Telegram</label><label><input type="radio" name="text" value="Ответ: звонок"> Звонок</label></div>
+    ${consentLabel()}<button class="btn btn-light" type="submit">Заказать консультацию</button></form>
+</div></div></section>
 `,
     jsonld: [S.business(site, d.base), ...(faqs.length ? [S.faq(faqs)] : [])],
   });

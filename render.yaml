@@ -1,0 +1,20 @@
+# Блюпринт для Render: демо сайта агента по недвижимости. Бесплатный тариф: сервис засыпает без посетителей,
+# база и загруженные фото стираются при перезапуске. Боевой сайт: VPS в РФ (deploy/, docs/ПУБЛИКАЦИЯ.md).
+services:
+  - type: web
+    name: realtor-site-demo
+    runtime: node
+    plan: free
+    buildCommand: echo ok
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DEMO_MODE
+        value: "1"
+      - key: SECRET
+        generateValue: true
+      - key: ADMIN_PASSWORD
+        value: "1234"   # стартовый пароль демо; сменить в Render (Environment) до приёма настоящих данных

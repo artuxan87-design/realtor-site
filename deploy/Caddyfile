@@ -1,0 +1,5 @@
+# Заменить example.ru на ваш домен. Caddy сам получит и продлит сертификат HTTPS.
+example.ru, www.example.ru {
+	encode gzip
+	reverse_proxy 127.0.0.1:3000
+}

@@ -15,6 +15,15 @@
   }
   document.addEventListener('change', function (ev) {
     var t = ev.target;
+    if (t.matches('[data-import-file]')) {
+      var file = t.files[0]; if (!file) return;
+      var hid = t.closest('form').querySelector('[name="b64"]'), st0 = t.closest('form').querySelector('.upl-status');
+      if (file.size > 5.5 * 1024 * 1024) { st0.textContent = 'Файл больше 5 МБ, разделите его'; t.value = ''; return; }
+      var rd = new FileReader();
+      rd.onload = function () { hid.value = String(rd.result).split(',')[1] || ''; st0.textContent = 'Файл прочитан: ' + file.name; };
+      rd.readAsDataURL(file);
+      return;
+    }
     if (t.matches('[data-upload]')) {
       var f = t.files[0]; if (!f) return;
       var form = t.closest('form'), inp = form.querySelector('[name="' + t.getAttribute('data-upload') + '"]');

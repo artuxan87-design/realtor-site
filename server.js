@@ -11,6 +11,7 @@ const { Store } = require('./lib/store');
 const P = require('./src/pages');
 const A = Object.assign({}, require('./src/pages-app'), require('./src/pages-admin-service'));
 const Media = require('./lib/media');
+const Imp = require('./lib/import');
 const SEO = require('./lib/seo');
 const { Payments } = require('./lib/payment-service');
 
@@ -41,14 +42,20 @@ function parseCookies(req) {
   }
   return out;
 }
-function readBody(req) {
+// Поля формы; у повторяющегося поля pick (выбор объектов при импорте) собираем список
+function formData(raw) {
+  const o = {};
+  for (const [k, v] of new URLSearchParams(raw)) o[k] = k === 'pick' ? [].concat(o[k] || [], v) : v;
+  return o;
+}
+function readBody(req, max = 1.5e6) {
   return new Promise((resolve, reject) => {
     let size = 0; const chunks = [];
-    req.on('data', c => { size += c.length; if (size > 1.5e6) { reject(new Error('too big')); req.destroy(); } else chunks.push(c); });
+    req.on('data', c => { size += c.length; if (size > max) { reject(new Error('too big')); req.destroy(); } else chunks.push(c); });
     req.on('end', () => {
       const raw = Buffer.concat(chunks).toString('utf8');
       let data = {};
-      try { data = String(req.headers['content-type'] || '').includes('json') ? JSON.parse(raw || '{}') : Object.fromEntries(new URLSearchParams(raw)); } catch { data = {}; }
+      try { data = String(req.headers['content-type'] || '').includes('json') ? JSON.parse(raw || '{}') : formData(raw); } catch { data = {}; }
       resolve({ raw, data });
     });
     req.on('error', reject);
@@ -78,6 +85,7 @@ function createApp({ dataFile = process.env.DATA_FILE || path.join(ROOT, 'data',
   const sign = v => v + '.' + crypto.createHmac('sha256', config.secret).update(v).digest('hex').slice(0, 32);
   const unsign = s => { if (!s) return null; const i = s.lastIndexOf('.'); const v = s.slice(0, i); return sign(v) === s ? v : null; };
   const tryLogin = limiter();
+  const pending = new Map(); // подготовленные к импорту выгрузки: токен -> данные
 
   async function handle(req, res) {
     const url = new URL(req.url, 'http://localhost');
@@ -145,7 +153,8 @@ function createApp({ dataFile = process.env.DATA_FILE || path.join(ROOT, 'data',
       const r = Media.save(uploadsDir, Buffer.concat(chunks));
       return send(r.error ? 400 : 200, JSON.stringify(r), 'application/json');
     }
-    const parsed = req.method === 'POST' ? await readBody(req) : { raw: '', data: {} };
+    const parsed = req.method === 'POST' ? await readBody(req, p.startsWith('/admin/import') ? 9e6 : undefined).catch(() => null) : { raw: '', data: {} };
+    if (!parsed) return send(413, 'Слишком большой запрос', 'text/plain; charset=utf-8');
     const body = parsed.data;
 
     // Вебхуки провайдеров: подлинность проверяет модуль оплаты (подпись или запрос статуса в API)
@@ -266,9 +275,30 @@ function createApp({ dataFile = process.env.DATA_FILE || path.join(ROOT, 'data',
         if (p === '/admin/services') return page(A.adminServices(d, ctx, q.msg));
         if (p === '/admin/cases') return page(A.adminCases(d, ctx, q.msg));
         if (p === '/admin/posts') return page(A.adminPosts(d, ctx, q.msg));
+        if (p === '/admin/import') return page(A.adminImport(d, ctx, q.msg));
         if (p === '/admin/media') return page(A.adminMedia(d, ctx, q.msg, Media.list(uploadsDir)));
         if (p === '/admin/payments') return page(A.adminPayments(d, ctx, q.msg));
         return notFound();
+      }
+      if (p === '/admin/import/preview') {
+        try {
+          const r = await Imp.prepare(body);
+          for (const [k, v] of pending) if (Date.now() - v.at > 1800000) pending.delete(k);
+          const token = crypto.randomBytes(12).toString('hex');
+          pending.set(token, { at: Date.now(), items: r.items });
+          const known = new Set(store.c.solutions.filter(x => x.source && x.source.type === 'avito').map(x => x.source.id));
+          return page(A.adminImport(d, ctx, '', [], { token, items: r.items, warnings: r.warnings, known, photos: body.photos === '1' }));
+        } catch (e) { return send(400, A.adminImport(d, ctx, '', [e.message])); }
+      }
+      if (p === '/admin/import/apply') {
+        const job = pending.get(body.token);
+        if (!job) return send(400, A.adminImport(d, ctx, '', ['Срок подготовки истёк, загрузите файл заново']));
+        pending.delete(body.token);
+        const pick = new Set([].concat(body.pick || []));
+        const items = job.items.filter(i => pick.has(i.sid));
+        if (!items.length) return send(400, A.adminImport(d, ctx, '', ['Ничего не выбрано']));
+        const r = await Imp.apply(store, items, { uploadsDir, photos: body.photos === '1' });
+        return redirect('/admin/solutions?msg=' + encodeURIComponent(`Импорт готов: новых ${r.created}, обновлено ${r.updated}` + (body.photos === '1' ? `, фото загружено ${r.photosOk}, не удалось ${r.photosFail}` : '')));
       }
       if (p === '/admin/logout') { cookie('as', '', 0); return redirect('/'); }
       if ((m = p.match(/^\/admin\/leads\/(\d+)\/close$/))) { const l = store.lead(m[1]); if (l) { l.status = 'lost'; store.log('admin', 'заявка закрыта', '№' + l.id); store.save(); } return redirect('/admin/leads'); }

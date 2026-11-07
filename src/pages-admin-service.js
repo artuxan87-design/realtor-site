@@ -67,6 +67,32 @@ ${inp('Видео-обзор (YouTube, RuTube, VK Видео или ссылка
 ${items.map(it => form(it, `/admin/solutions/${it.slug}`, 'Сохранить') + POST(`/admin/solutions/${it.slug}/delete`, '<button class="btn btn-ghost btn-sm" onclick="return confirm(\'Удалить объект?\')">Удалить объект</button>')).join('')}`);
 }
 
+function adminImport(d, ctx, msg, e = [], prev = null) {
+  const form = `<form class="box form" method="post" action="/admin/import/preview">
+<h3>Откуда взять объявления</h3>
+<label>Файл выгрузки: XML автозагрузки Авито, Excel (.xlsx) или CSV<input type="file" accept=".xml,.xlsx,.csv,.txt" data-import-file></label>
+<input type="hidden" name="b64" value=""><span class="upl-status muted small"></span>
+<p class="muted small">или</p>
+${inp('Ссылка на ваш файл автозагрузки (XML или CSV)', 'url', '', { ph: 'https://...' })}
+<label class="check"><input type="checkbox" name="photos" value="1" checked> <span>Скачать фото на свой сайт (иначе фото останутся ссылками на Авито и могут пропасть)</span></label>
+<div class="actions"><button class="btn btn-sm">Показать, что будет импортировано</button></div></form>`;
+  const help = `<div class="box"><h3>Как это работает</h3>
+<ul class="checks"><li>Подходит выгрузка вашего аккаунта: файл автозагрузки, по которому вы размещаете объявления, либо Excel/CSV со столбцами «Название», «Цена», «Описание», «Фото», «Площадь», «Этаж» и другими.</li>
+<li>Читаются: заголовок, цена, тип сделки (продам или сдам), описание, комнаты, площадь, этаж, дом, ремонт, адрес, фото, видео.</li>
+<li>Повторный импорт того же файла обновляет цены и описания уже перенесённых объектов, дубликаты не создаются. Ваши правки названия и фото при обновлении сохраняются.</li>
+<li>Страницы Авито сайт не читает: автоматический сбор с Авито запрещён правилами площадки. Переносите только свои объявления.</li></ul></div>`;
+  let body = '';
+  if (prev) {
+    const rows = prev.items.map((it, i) => `<tr><td><label class="check"><input type="checkbox" name="pick" value="${esc(it.sid)}" checked> <span>${esc(it.title)}</span></label></td><td>${it.deal === 'rent' ? 'аренда' : 'продажа'}</td><td>${it.price == null ? '—' : P.rub(Math.round(it.price))}</td><td>${esc([it.rooms === 0 ? 'студия' : it.rooms ? it.rooms + '-к' : '', it.area ? it.area + ' м²' : ''].filter(Boolean).join(', '))}</td><td>${it.images.length}</td><td>${prev.known.has(it.sid) ? 'обновится' : 'новый'}</td></tr>`).join('');
+    body = `<form class="box" method="post" action="/admin/import/apply"><h3>Найдено объявлений: ${prev.items.length}</h3>${(prev.warnings || []).map(w => `<p class="alert">${esc(w)}</p>`).join('')}
+<input type="hidden" name="token" value="${esc(prev.token)}"><label class="check"><input type="checkbox" name="photos" value="1"${prev.photos ? ' checked' : ''}> <span>Скачать фото на свой сайт</span></label>
+<div class="tblwrap"><table class="tbl"><thead><tr><th>Объект</th><th>Тип</th><th>Цена</th><th>Параметры</th><th>Фото</th><th>Что будет</th></tr></thead><tbody>${rows}</tbody></table></div>
+<p class="muted small">Снимите галочки у того, что переносить не нужно. Скачивание фото занимает время: до минуты на 10 объектов.</p>
+<div class="actions"><button class="btn">Импортировать выбранное</button> <a class="btn btn-ghost" href="/admin/import">Отмена</a></div></form>`;
+  }
+  return adminShell(d, ctx, 'import', `${flash(msg)}${errs(e)}${SCRIPT}${body}${prev ? '' : form}${prev ? '' : help}`);
+}
+
 function adminServices(d, ctx, msg, e = []) {
   const items = ctx.store.c.services;
   const form = (it, action, btn) => `<form class="box form" method="post" action="${action}"><h3>${esc(it.title || 'Новая услуга')}</h3>
@@ -119,4 +145,4 @@ function adminMedia(d, ctx, msg, files = []) {
 <p class="muted small">Внимание: на бесплатном тарифе Render загруженные файлы пропадают при перезапуске сервера. На постоянном сервере (VPS) или с подключённым диском они сохраняются.</p>`);
 }
 
-module.exports = { adminSite, adminSolutions, adminServices, adminCases, adminPosts, adminMedia };
+module.exports = { adminImport, adminSite, adminSolutions, adminServices, adminCases, adminPosts, adminMedia };
